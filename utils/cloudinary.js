@@ -23,3 +23,5 @@ const uploadCloudinary = async (localFilePath) => {
         throw err;
     }
 }
+
+export {uploadCloudinary};
