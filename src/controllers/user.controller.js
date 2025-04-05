@@ -27,7 +27,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
   const checkExistingUser = await User.findOne({
     $or: [{ userName: userName }, { email: email }],
-  })
+  });
 
   if (checkExistingUser) {
     throw new ApiError(409, "User already exists");
@@ -38,7 +38,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
   if (!avatarLocalPath) {
     throw new ApiError(400, "Avatar is required");
-  };
+  }
 
   const avatar = await uploadCloudinary(avatarLocalPath);
   const coverImage = await uploadCloudinary(coverImageLocalPath);
@@ -53,19 +53,19 @@ const registerUser = asyncHandler(async (req, res) => {
     userName: userName.toLowerCase(),
     password,
     avatar: avatar.url,
-    coverImage: coverImage?.url ?? '',
+    coverImage: coverImage?.url ?? "",
   });
 
-  const isUserCreated  = await User.findById(user?._id).select(
+  const isUserCreated = await User.findById(user?._id).select(
     "-password -refreshToken"
   );
 
   if (!isUserCreated) {
     throw new ApiError(500, "User creation failed");
   }
-  return res.status(201).json(
-    new ApiResponse(200, isUserCreated, "User created successfully"),
-  )
+  return res
+    .status(201)
+    .json(new ApiResponse(200, isUserCreated, "User created successfully"));
 });
 
 const loginUser = asyncHandler(async (req, res) => {
@@ -85,68 +85,123 @@ const loginUser = asyncHandler(async (req, res) => {
     throw new ApiError(404, "User not found");
   }
 
-
-  const isPasswordMatch = await bcrypt.compare(password, checkExistingUser.password);
+  const isPasswordMatch = await bcrypt.compare(
+    password,
+    checkExistingUser.password
+  );
   if (isPasswordMatch) {
-    return res.status(200).json(
-      new ApiResponse(200, checkExistingUser, "Successful logged in"),
-    )
-  }
-  else {
+    return res
+      .status(200)
+      .json(new ApiResponse(200, checkExistingUser, "Successful logged in"));
+  } else {
     throw new ApiError(401, "Incorrect password");
   }
 });
 
 const getUsers = asyncHandler(async (req, res) => {
-  const isUserCreated  = await User.find({});
-  return res.status(200).json(
-    new ApiResponse(200, isUserCreated, ""),
-  )
+  const isUserCreated = await User.find({});
+  return res.status(200).json(new ApiResponse(200, isUserCreated, ""));
 });
 
 const updateUser = asyncHandler(async (req, res) => {
-  const {email, userName, fullName, password, avatar, coverImage} = req.body;
-  if ([email, userName, fullName, password, avatar].some((item) => item?.trim() === "" || !item)) {
+  const { email, userName, fullName, password, avatar, coverImage } = req.body;
+  if (
+    [email, userName, fullName, password, avatar].some(
+      (item) => item?.trim() === "" || !item
+    )
+  ) {
     throw new ApiError(400, "All fields are required");
   }
-    const checkExistingUser = await User.findOne({
-      $or: [{ email: email, userName: userName }],
-    })
+  const checkExistingUser = await User.findOne({
+    $or: [{ email: email, userName: userName }],
+  });
 
   if (!checkExistingUser) {
     throw new ApiError(404, "User not found");
-  }
-  else {
-    const user = await User.findOneAndUpdate({ userName: userName }, {
-      $set: {
-        email,
-        userName,
-        fullName,
-        avatar,
-        coverImage,
-        password
+  } else {
+    const user = await User.findOneAndUpdate(
+      { userName: userName },
+      {
+        $set: {
+          email,
+          userName,
+          fullName,
+          avatar,
+          coverImage,
+          password,
+        },
       }
-    });
-    return res.status(200).json(
-      new ApiResponse(200, user, "User updated successfully"),
-    )
+    );
+    return res
+      .status(200)
+      .json(new ApiResponse(200, user, "User updated successfully"));
   }
 });
 
 const getUser = asyncHandler(async (req, res) => {
-  const {_id} = req.params;
+  const { _id } = req.params;
   if (!_id.trim()) {
     throw new ApiError(400, "User id is required");
   }
-  const checkExistingUser = await User.findOne({_id:  new mongoose.Types.ObjectId(_id)});
+  const checkExistingUser = await User.findOne({
+    _id: new mongoose.Types.ObjectId(_id),
+  });
   if (!checkExistingUser) {
     throw new ApiError(404, "User not found");
   }
 
-return res.status(200).json(
-  new ApiResponse(200, checkExistingUser, ""),
-)
+  return res.status(200).json(new ApiResponse(200, checkExistingUser, ""));
 });
 
+const deleteUserById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  //check id is empty or not
+  if (id.trim() === "") {
+    throw new ApiError(400, "id is mandatory field");
+  }
 
-export { registerUser, loginUser, getUsers, updateUser, getUser };
+  // check id exist in the database or not
+  const isUserIdExist = await User.findOne({
+    _id: new mongoose.Types.ObjectId(id),
+  });
+  const deleteUserById = await User.deleteOne({
+    _id: new mongoose.Types.ObjectId(id),
+  });
+  if (deleteUserById) {
+    return res
+      .status(200)
+      .json(new ApiResponse(200, isUserIdExist, "User deleted successfully"));
+  }
+});
+
+const updateUserNameById = asyncHandler(async (req, res) => {
+  const { id } = req.params ?? "";
+  const { name } = req.body ?? "";
+  // check if id or name is empty or not
+  if (id.trim() === "" || name.trim() === "") {
+    throw new ApiError(400, "Please send all the required fields");
+  }
+  // check if id exist or not
+  const checkIfUserIdExist = await User.findOne({
+    _id: new mongoose.Types.ObjectId(id),
+  });
+  console.log(checkIfUserIdExist);
+  if (checkIfUserIdExist) {
+    const updatedUser = await User.findByIdAndUpdate(
+      new mongoose.Types.ObjectId(id),
+      { fullName: name },
+      { new: true }
+    );
+   return res.status(200).json(new ApiResponse(200, updateUser, 'Username updated successfully'));
+  }
+});
+
+export {
+  registerUser,
+  loginUser,
+  getUsers,
+  updateUser,
+  getUser,
+  deleteUserById,
+  updateUserNameById,
+};
